@@ -1,5 +1,5 @@
 // ============================================================
-//  CLIENT MODULE IMPLEMENTATION
+//  CLIENT MODULE - Core implementation and management
 //  ------------------------------------------------------------
 //  Handles all client-side logic for communication with
 //  the Tic-Tac-Toe server.
