@@ -13,6 +13,7 @@
 #include "room.h"
 #include "utils.h"
 #include "game.h"
+#include "config.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,6 +21,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <strings.h>
+#include <sys/socket.h>
 
 // ============================================================
 //  Global variables
@@ -28,12 +30,27 @@
 struct Client* g_clients[MAX_CLIENTS];
 pthread_mutex_t g_clients_mtx = PTHREAD_MUTEX_INITIALIZER;
 
+#define MAX_INVALID_MSG 3  // Disconnect after 3 invalid inputs
+
 
 // ============================================================
 //  Client lifecycle management
 // ============================================================
 
 struct Client* client_create(int fd) {
+    // Enforce max_clients limit
+    pthread_mutex_lock(&g_clients_mtx);
+    int active = 0;
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (g_clients[i]) active++;
+    }
+    if (active >= g_config.max_clients) {
+        pthread_mutex_unlock(&g_clients_mtx);
+        sendp(fd, "ERROR|Server full");
+        return NULL;
+    }
+    pthread_mutex_unlock(&g_clients_mtx);
+
     struct Client* c = calloc(1, sizeof(struct Client));
     if (!c) return NULL;
 
@@ -42,6 +59,7 @@ struct Client* client_create(int fd) {
     c->alive = true;
     c->connected = true;
     c->missed_pongs = 0;
+    c->invalid_count = 0;
 
     // Generate random session token for reconnect
     snprintf(c->session_id, sizeof(c->session_id),
@@ -100,6 +118,7 @@ void client_set_state(struct Client* c, ClientState st) {
 
 static void handle_join(struct Client* c, const char* payload);
 static void handle_quit(struct Client* c);
+static void bump_invalid(struct Client* c, const char* reason);
 
 static void dispatch_line(struct Client* c, const char* line) {
     if (strncmp(line, "##JOIN|", 7) == 0) {
@@ -111,6 +130,7 @@ static void dispatch_line(struct Client* c, const char* line) {
 
         if (!name || !session) {
             sendp(c->fd, "ERROR|Invalid reconnect format");
+            bump_invalid(c, "invalid reconnect");
             return;
         }
 
@@ -145,16 +165,20 @@ static void dispatch_line(struct Client* c, const char* line) {
         int x, y;
         if (!c->current_room) {
             sendp(c->fd, "ERROR|Not in game room");
+            bump_invalid(c, "move outside room");
             return;
         }
         if (parse_move(line, &x, &y))
             game_move(c->current_room, c, x, y);
-        else
+        else {
             sendp(c->fd, "ERROR|Invalid MOVE format");
+            bump_invalid(c, "invalid move format");
+        }
 
     } else if (strncmp(line, "##REPLAY|", 9) == 0) {
         if (!c->current_room) {
             sendp(c->fd, "ERROR|Not in room");
+            bump_invalid(c, "replay outside room");
             return;
         }
 
@@ -207,6 +231,7 @@ static void dispatch_line(struct Client* c, const char* line) {
 
     } else {
         sendp(c->fd, "ERROR|UNKNOWN_CMD");
+        bump_invalid(c, "unknown command");
     }
 }
 
@@ -231,6 +256,7 @@ void* client_thread(void* arg) {
 
         trim_newline(buf);
         dispatch_line(c, buf);
+        if (!c->alive) break;
     }
 
     client_destroy(c);
@@ -260,4 +286,21 @@ static void handle_join(struct Client* c, const char* payload) {
 static void handle_quit(struct Client* c) {
     sendp(c->fd, "BYE|");
     c->alive = false;
+}
+
+
+// ============================================================
+//  Invalid message tracking
+// ============================================================
+
+static void bump_invalid(struct Client* c, const char* reason) {
+    if (!c) return;
+    c->invalid_count++;
+    if (c->invalid_count >= MAX_INVALID_MSG) {
+        sendp(c->fd, "ERROR|Too many invalid messages");
+        c->alive = false;
+        c->connected = false;
+        shutdown(c->fd, SHUT_RDWR);
+        handle_disconnect(c);
+    }
 }

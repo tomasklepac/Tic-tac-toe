@@ -19,6 +19,9 @@ typedef struct {
     char bind_address[32];  ///< IP address to bind (default: "0.0.0.0")
 } ServerConfig;
 
+// Global configuration instance loaded at startup.
+extern ServerConfig g_config;
+
 /**
  * @brief Loads server configuration from a file.
  * 

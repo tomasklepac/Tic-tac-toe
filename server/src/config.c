@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+ServerConfig g_config;
+
 void config_load(const char* filename, ServerConfig* cfg)
 {
     if (!cfg) return;
@@ -25,4 +27,7 @@ void config_load(const char* filename, ServerConfig* cfg)
     }
 
     fclose(f);
+
+    // Mirror to global config for modules that read it directly.
+    g_config = *cfg;
 }

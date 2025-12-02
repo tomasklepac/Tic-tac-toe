@@ -8,9 +8,11 @@
 #include "room.h"
 #include "utils.h"
 #include "client.h"
+#include "config.h"
 
 #include <string.h>
 #include <stdio.h>
+#include <pthread.h>
 
 // ============================================================
 //  GLOBAL DATA
@@ -18,6 +20,11 @@
 Room g_rooms[MAX_ROOMS];
 int  g_room_count = 0;
 static int g_next_room_id = 0;
+pthread_mutex_t g_rooms_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+// Internal helper: assumes g_rooms_mtx is locked
+static void room_remove_if_empty_locked(Room* r);
+static void prune_slot(Room* r, struct Client** slot, bool* flag, time_t* ts);
 
 
 // ============================================================
@@ -27,7 +34,9 @@ static int g_next_room_id = 0;
 //  and sets the initial WAITING state.
 // ============================================================
 Room* room_create(const char* name, struct Client* creator) {
-    if (g_room_count >= MAX_ROOMS) {
+    pthread_mutex_lock(&g_rooms_mtx);
+    if (g_room_count >= g_config.max_rooms) {
+        pthread_mutex_unlock(&g_rooms_mtx);
         sendp(creator->fd, "ERROR|Lobby full");
         return NULL;
     }
@@ -57,6 +66,7 @@ Room* room_create(const char* name, struct Client* creator) {
     r->replay_p2 = 0;
 
     sendp(creator->fd, "CREATED|%d|%s", r->id, r->name);
+    pthread_mutex_unlock(&g_rooms_mtx);
     return r;
 }
 
@@ -79,10 +89,11 @@ static Room* room_find_by_id(int id) {
 //  Allows a second player to join an existing WAITING room.
 // ============================================================
 Room* room_join(int room_id, struct Client* joiner) {
+    pthread_mutex_lock(&g_rooms_mtx);
     Room* r = room_find_by_id(room_id);
-    if (!r) { sendp(joiner->fd, "ERROR|No such room"); return NULL; }
-    if (r->p1 == joiner) { sendp(joiner->fd, "ERROR|Cannot join your own room"); return NULL; }
-    if (r->state != ROOM_WAITING || r->p2 != NULL) { sendp(joiner->fd, "ERROR|Room full"); return NULL; }
+    if (!r) { pthread_mutex_unlock(&g_rooms_mtx); sendp(joiner->fd, "ERROR|No such room"); return NULL; }
+    if (r->p1 == joiner) { pthread_mutex_unlock(&g_rooms_mtx); sendp(joiner->fd, "ERROR|Cannot join your own room"); return NULL; }
+    if (r->state != ROOM_WAITING || r->p2 != NULL) { pthread_mutex_unlock(&g_rooms_mtx); sendp(joiner->fd, "ERROR|Room full"); return NULL; }
 
     // Assign player slot
     r->p2 = joiner;
@@ -106,6 +117,7 @@ Room* room_join(int room_id, struct Client* joiner) {
 
     r->replay_p1 = r->replay_p2 = 0;
     game_start(r);
+    pthread_mutex_unlock(&g_rooms_mtx);
     return r;
 }
 
@@ -119,6 +131,7 @@ Room* room_join(int room_id, struct Client* joiner) {
 void room_leave(struct Client* c) {
     Room* r = c->current_room;
     if (!r) return;
+    pthread_mutex_lock(&g_rooms_mtx);
     int was_playing = (r->state == ROOM_PLAYING);
 
     if (r->p1 == c) r->p1 = NULL;
@@ -132,11 +145,13 @@ void room_leave(struct Client* c) {
         r->p1_name[0] = '\0';
         r->p1_session[0] = '\0';
         r->p1_disconnected = false;
+        r->p1_disconnected_at = 0;
     }
     if (!r->p2) {
         r->p2_name[0] = '\0';
         r->p2_session[0] = '\0';
         r->p2_disconnected = false;
+        r->p2_disconnected_at = 0;
     }
 
     c->current_room = NULL;
@@ -153,10 +168,11 @@ void room_leave(struct Client* c) {
 
     if (!r->p1 && !r->p2) {
         r->state = ROOM_EMPTY;
-        room_remove_if_empty(r);
+        room_remove_if_empty_locked(r);
     } else if (!r->p1 || !r->p2) {
         r->state = ROOM_WAITING;
     }
+    pthread_mutex_unlock(&g_rooms_mtx);
 }
 
 
@@ -168,18 +184,9 @@ void room_leave(struct Client* c) {
 // ============================================================
 void room_remove_if_empty(Room* r) {
     if (!r) return;
-
-    int idx = -1;
-    for (int i = 0; i < g_room_count; i++) {
-        if (&g_rooms[i] == r) { idx = i; break; }
-    }
-    if (idx == -1) return;
-
-    if (!r->p1 && !r->p2) {
-        for (int j = idx; j < g_room_count - 1; j++)
-            g_rooms[j] = g_rooms[j + 1];
-        g_room_count--;
-    }
+    pthread_mutex_lock(&g_rooms_mtx);
+    room_remove_if_empty_locked(r);
+    pthread_mutex_unlock(&g_rooms_mtx);
 }
 
 
@@ -190,8 +197,8 @@ void room_remove_if_empty(Room* r) {
 // ============================================================
 void rooms_list_send(struct Client* c) {
     char buf[512];
+    pthread_mutex_lock(&g_rooms_mtx);
     int off = snprintf(buf, sizeof(buf), "ROOMS|%d", g_room_count);
-
     for (int i = 0; i < g_room_count; i++) {
         Room* r = &g_rooms[i];
         if (r->state == ROOM_EMPTY) continue;
@@ -206,6 +213,7 @@ void rooms_list_send(struct Client* c) {
                         (r->state == ROOM_WAITING ? "WAITING" : "PLAYING"),
                         players);
     }
+    pthread_mutex_unlock(&g_rooms_mtx);
     sendp(c->fd, "%s", buf);
 }
 
@@ -218,6 +226,8 @@ void rooms_list_send(struct Client* c) {
 // ============================================================
 void room_try_restart(Room* r) {
     if (!r || !r->p1 || !r->p2) return;
+
+    pthread_mutex_lock(&g_rooms_mtx);
 
     if (r->replay_p1 && r->replay_p2) {
         r->starting_player = 1 - r->starting_player;
@@ -241,6 +251,7 @@ void room_try_restart(Room* r) {
             sendp(r->p1->fd, "SYMBOL|O");
         }
     }
+    pthread_mutex_unlock(&g_rooms_mtx);
 }
 
 
@@ -253,8 +264,10 @@ void room_try_restart(Room* r) {
 void handle_disconnect(struct Client* c) {
     if (!c || !c->current_room) return;
     Room* r = c->current_room;
+    time_t now = time(NULL);
 
     printf("Client %s disconnected\n", c->name);
+    pthread_mutex_lock(&g_rooms_mtx);
 
     // Preserve identity for reconnect
     if (r->p1 == c) {
@@ -262,11 +275,13 @@ void handle_disconnect(struct Client* c) {
         snprintf(r->p1_session, sizeof(r->p1_session), "%s", c->session_id);
         r->p1 = NULL;
         r->p1_disconnected = (r->p2 != NULL);
+        r->p1_disconnected_at = now;
     } else if (r->p2 == c) {
         snprintf(r->p2_name, sizeof(r->p2_name), "%s", c->name);
         snprintf(r->p2_session, sizeof(r->p2_session), "%s", c->session_id);
         r->p2 = NULL;
         r->p2_disconnected = (r->p1 != NULL);
+        r->p2_disconnected_at = now;
     }
 
     // Reset current turn if he was on move
@@ -280,15 +295,18 @@ void handle_disconnect(struct Client* c) {
 
     struct Client* other = (r->p1) ? r->p1 : r->p2;
     if (other) {
+        pthread_mutex_unlock(&g_rooms_mtx);
         sendp(other->fd, "INFO|Opponent disconnected");
         sendp(other->fd, "WIN|You");
+        pthread_mutex_lock(&g_rooms_mtx);
         other->state = CLIENT_STATE_WAITING;
         other->current_room = r;
         r->state = ROOM_WAITING;
     } else {
         r->state = ROOM_EMPTY;
-        room_remove_if_empty(r);
+        room_remove_if_empty_locked(r);
     }
+    pthread_mutex_unlock(&g_rooms_mtx);
 }
 
 
@@ -299,6 +317,7 @@ void handle_disconnect(struct Client* c) {
 //  back into their previous room slot.
 // ============================================================
 Room* room_reconnect(const char* nick, const char* session, struct Client* newcomer) {
+    pthread_mutex_lock(&g_rooms_mtx);
     for (int i = 0; i < g_room_count; ++i) {
         Room* r = &g_rooms[i];
 
@@ -314,9 +333,11 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
             if (match_p1) {
                 r->p1 = newcomer;
                 r->p1_disconnected = false;
+                r->p1_disconnected_at = 0;
             } else {
                 r->p2 = newcomer;
                 r->p2_disconnected = false;
+                r->p2_disconnected_at = 0;
             }
 
             newcomer->current_room = r;
@@ -350,10 +371,99 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
                 sendp(opponent->fd, "INFO|Opponent reconnected");
             }
 
+            pthread_mutex_unlock(&g_rooms_mtx);
             return r;
         }
     }
 
     sendp(newcomer->fd, "##ERROR|No reconnect slot");
+    pthread_mutex_unlock(&g_rooms_mtx);
     return NULL;
+}
+
+
+// ============================================================
+//  Remove long-disconnected players after grace period
+// ============================================================
+void rooms_prune_disconnected(int grace_seconds) {
+    if (grace_seconds <= 0) return;
+    time_t now = time(NULL);
+
+    pthread_mutex_lock(&g_rooms_mtx);
+    for (int i = 0; i < g_room_count; /* increment inside */) {
+        Room* r = &g_rooms[i];
+        bool removed = false;
+
+        // Check player 1 slot
+        if (r->p1_disconnected && r->p1_disconnected_at &&
+            difftime(now, r->p1_disconnected_at) >= grace_seconds) {
+            struct Client* other = r->p2;
+            prune_slot(r, &r->p1, &r->p1_disconnected, &r->p1_disconnected_at);
+            if (other) {
+                sendp(other->fd, "INFO|Opponent removed after timeout");
+                sendp(other->fd, "EXITED|");
+                other->current_room = NULL;
+                other->state = CLIENT_STATE_LOBBY;
+                r->p2 = NULL;
+            }
+            r->state = ROOM_EMPTY;
+            room_remove_if_empty_locked(r);
+            removed = true;
+        }
+
+        // Check player 2 slot (only if room still exists at index)
+        if (!removed && r->p2_disconnected && r->p2_disconnected_at &&
+            difftime(now, r->p2_disconnected_at) >= grace_seconds) {
+            struct Client* other = r->p1;
+            prune_slot(r, &r->p2, &r->p2_disconnected, &r->p2_disconnected_at);
+            if (other) {
+                sendp(other->fd, "INFO|Opponent removed after timeout");
+                sendp(other->fd, "EXITED|");
+                other->current_room = NULL;
+                other->state = CLIENT_STATE_LOBBY;
+                r->p1 = NULL;
+            }
+            r->state = ROOM_EMPTY;
+            room_remove_if_empty_locked(r);
+            removed = true;
+        }
+
+        if (!removed) {
+            i++;
+        } else {
+            // After removal, rooms array may be shifted left
+            if (i >= g_room_count) break;
+        }
+    }
+    pthread_mutex_unlock(&g_rooms_mtx);
+}
+
+
+// ============================================================
+//  Internal helper: remove room if empty (expects lock held)
+// ============================================================
+static void room_remove_if_empty_locked(Room* r) {
+    if (!r) return;
+
+    int idx = -1;
+    for (int i = 0; i < g_room_count; i++) {
+        if (&g_rooms[i] == r) { idx = i; break; }
+    }
+    if (idx != -1 && !r->p1 && !r->p2) {
+        for (int j = idx; j < g_room_count - 1; j++)
+            g_rooms[j] = g_rooms[j + 1];
+        g_room_count--;
+    }
+}
+
+
+// ============================================================
+//  Helper to clear a disconnected slot (expects lock held)
+// ============================================================
+static void prune_slot(Room* r, struct Client** slot, bool* flag, time_t* ts) {
+    if (!r || !slot || !flag || !ts) return;
+    *slot = NULL;
+    *flag = false;
+    *ts = 0;
+    r->replay_p1 = r->replay_p2 = 0;
 }

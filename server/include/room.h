@@ -2,6 +2,7 @@
 #define ROOM_H
 
 #include <stdbool.h>
+#include <time.h>
 #include "client.h"
 #include "game.h"
 
@@ -61,6 +62,8 @@ typedef struct Room {
     // Disconnection tracking
     bool p1_disconnected;
     bool p2_disconnected;
+    time_t p1_disconnected_at;
+    time_t p2_disconnected_at;
 
     // Identification for reconnect
     char p1_name[32];
@@ -155,5 +158,10 @@ void rooms_list_send(struct Client* c);
  */
 void handle_disconnect(struct Client* c);
 
+/**
+ * @brief Removes long-disconnected players after a grace period.
+ * @param grace_seconds  How long a player may stay disconnected before removal.
+ */
+void rooms_prune_disconnected(int grace_seconds);
 
 #endif // ROOM_H

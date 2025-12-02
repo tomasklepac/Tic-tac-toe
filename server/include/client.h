@@ -40,6 +40,7 @@ typedef struct Client {
     bool alive;                 // Thread running flag
     bool connected;             // True if connection is alive
     int  missed_pongs;          // Number of missed PONG responses
+    int  invalid_count;         // Number of invalid protocol inputs
 
     char session_id[32];        // Unique reconnect session token
 } Client;

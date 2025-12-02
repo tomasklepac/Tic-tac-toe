@@ -56,6 +56,7 @@ void* heartbeat_thread(void* arg) {
         }
 
         pthread_mutex_unlock(&g_clients_mtx);
+        rooms_prune_disconnected(30);
         sleep(PING_INTERVAL);
     }
     return NULL;
@@ -71,7 +72,10 @@ void* heartbeat_thread(void* arg) {
 int main(int argc, char** argv) {
     ServerConfig cfg;
     config_load("server.config", &cfg);
-    int port = cfg.port;
+    g_config = cfg;  // make available to other modules
+    if (g_config.max_rooms <= 0 || g_config.max_rooms > MAX_ROOMS) g_config.max_rooms = MAX_ROOMS;
+    if (g_config.max_clients <= 0 || g_config.max_clients > MAX_CLIENTS) g_config.max_clients = MAX_CLIENTS;
+    int port = g_config.port;
     srand((unsigned)time(NULL));
 
     // CLI argument overrides config file port
@@ -100,7 +104,7 @@ int main(int argc, char** argv) {
     addr.sin_family = AF_INET;
     {
         struct in_addr ina;
-        if (inet_pton(AF_INET, cfg.bind_address, &ina) == 1) {
+        if (inet_pton(AF_INET, g_config.bind_address, &ina) == 1) {
             addr.sin_addr = ina;
         } else {
             addr.sin_addr.s_addr = INADDR_ANY;
@@ -125,7 +129,7 @@ int main(int argc, char** argv) {
     // --------------------------------------------------------
     printf("=====================================\n");
     printf("  Tic-Tac-Toe Server is running\n");
-    printf("  Listening on %s:%d\n", cfg.bind_address, port);
+    printf("  Listening on %s:%d\n", g_config.bind_address, port);
     printf("=====================================\n\n");
 
     // --------------------------------------------------------
@@ -133,7 +137,7 @@ int main(int argc, char** argv) {
     // --------------------------------------------------------
     pthread_t hb;
     static int hb_limit;
-    hb_limit = cfg.max_clients;
+    hb_limit = g_config.max_clients;
     if (hb_limit <= 0 || hb_limit > MAX_CLIENTS) hb_limit = MAX_CLIENTS;
     pthread_create(&hb, NULL, heartbeat_thread, &hb_limit);
     pthread_detach(hb);

@@ -27,6 +27,9 @@ public partial class MainPage : ContentPage
     private StreamReader? _reader;
     private StreamWriter? _writer;
     private CancellationTokenSource? _cts;
+    private string _serverIp = string.Empty;
+    private int _serverPort;
+    private bool _allowAutoReconnect = true;
 
     // -------------------------------------------------------------------------
     // Client / game state
@@ -178,6 +181,10 @@ public partial class MainPage : ContentPage
             _client = new TcpClient();
             await _client.ConnectAsync(ip, port);
 
+            _serverIp = ip;
+            _serverPort = port;
+            _allowAutoReconnect = true;
+
             _logger.LogInformation("Connected to server at {IP}:{Port}.", ip, port);
 
             // Create reader/writer over network stream (UTF-8)
@@ -273,6 +280,24 @@ public partial class MainPage : ContentPage
         {
             _logger.LogWarning("Listener stopped.");
             await SafeDisconnectAsync();
+
+            bool reconnected = await AttemptReconnectLoopAsync();
+            if (!reconnected)
+            {
+                Dispatcher.Dispatch(async () =>
+                {
+                    LabelStatus.Text = "Connection lost.";
+                    LabelLobbyStatus.Text = "Connection lost.";
+                    LabelLobbyStatus.IsVisible = true;
+
+                    // Return to lobby on failure to reconnect
+                    GameRoomView.IsVisible = false;
+                    RoomsView.IsVisible = false;
+                    LobbyView.IsVisible = true;
+
+                    await DisplayAlert("Connection Lost", "Unable to reconnect to the server.", "OK");
+                });
+            }
         }
     }
 
@@ -319,9 +344,61 @@ public partial class MainPage : ContentPage
             _logger.LogError(ex, "Error during disconnection.");
         }
     }
+
+    /// <summary>
+    /// Attempts automatic reconnect using stored session (short outages).
+    /// Retries with exponential backoff up to 5 attempts.
+    /// </summary>
+    private async Task<bool> AttemptReconnectLoopAsync()
+    {
+        if (!_allowAutoReconnect)
+            return false;
+        if (string.IsNullOrEmpty(_serverIp) || _serverPort == 0 || string.IsNullOrEmpty(_playerName) || string.IsNullOrEmpty(_sessionId))
+            return false;
+
+        int delayMs = 1000;
+        for (int attempt = 1; attempt <= 5; attempt++)
+        {
+            try
+            {
+                _logger.LogInformation("Reconnect attempt {Attempt} to {IP}:{Port}", attempt, _serverIp, _serverPort);
+                _client = new TcpClient();
+                await _client.ConnectAsync(_serverIp, _serverPort);
+
+                var networkStream = _client.GetStream();
+                _reader = new StreamReader(networkStream, Encoding.UTF8);
+                _writer = new StreamWriter(networkStream, new UTF8Encoding(false))
+                {
+                    AutoFlush = true
+                };
+
+                await SendAsync($"##RECONNECT|{_playerName}|{_sessionId}");
+
+                _cts = new CancellationTokenSource();
+                _ = Task.Run(() => ListenToServerAsync(_cts.Token));
+
+                Dispatcher.Dispatch(() =>
+                {
+                    LabelStatus.Text = "Reconnected.";
+                    LabelLobbyStatus.Text = "Reconnected.";
+                    LabelLobbyStatus.IsVisible = true;
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reconnect attempt {Attempt} failed", attempt);
+                await Task.Delay(delayMs);
+                delayMs = Math.Min(delayMs * 2, 8000);
+            }
+        }
+
+        return false;
+    }
     #endregion
 
-    #region Protocol Handling – HandleServerMessage
+    #region Protocol Handling - HandleServerMessage
     // -------------------------------------------------------------------------
     // Server message processing
     // -------------------------------------------------------------------------
@@ -815,6 +892,7 @@ public partial class MainPage : ContentPage
     /// </summary>
     private async void OnBackToLobbyClicked(object sender, EventArgs e)
     {
+        _allowAutoReconnect = false;
         if (_writer != null)
             await SendAsync("##QUIT|");
 
