@@ -14,6 +14,7 @@ void config_load(const char* filename, ServerConfig* cfg)
     cfg->max_rooms = 16;
     cfg->max_clients = 128;
     strcpy(cfg->bind_address, "0.0.0.0");
+    cfg->disconnect_grace = 15;
 
     FILE* f = fopen(filename, "r");
     if (!f) return; // fallback to defaults
@@ -24,6 +25,7 @@ void config_load(const char* filename, ServerConfig* cfg)
         (void)sscanf(line, "MAX_ROOMS=%d", &cfg->max_rooms);
         (void)sscanf(line, "MAX_CLIENTS=%d", &cfg->max_clients);
         (void)sscanf(line, "BIND_ADDRESS=%31s", cfg->bind_address);
+        (void)sscanf(line, "DISCONNECT_GRACE=%d", &cfg->disconnect_grace);
     }
 
     fclose(f);

@@ -17,6 +17,7 @@ typedef struct {
     int max_rooms;          ///< Maximum number of concurrent game rooms (default: 16)
     int max_clients;        ///< Maximum number of concurrent clients (default: 128)
     char bind_address[32];  ///< IP address to bind (default: "0.0.0.0")
+    int disconnect_grace;   ///< Seconds to wait before declaring win after disconnect (default: 15)
 } ServerConfig;
 
 // Global configuration instance loaded at startup.

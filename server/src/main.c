@@ -75,6 +75,7 @@ int main(int argc, char** argv) {
     g_config = cfg;  // make available to other modules
     if (g_config.max_rooms <= 0 || g_config.max_rooms > MAX_ROOMS) g_config.max_rooms = MAX_ROOMS;
     if (g_config.max_clients <= 0 || g_config.max_clients > MAX_CLIENTS) g_config.max_clients = MAX_CLIENTS;
+    if (g_config.disconnect_grace <= 0) g_config.disconnect_grace = 15;
     int port = g_config.port;
     srand((unsigned)time(NULL));
 

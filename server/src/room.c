@@ -276,12 +276,14 @@ void handle_disconnect(struct Client* c) {
         r->p1 = NULL;
         r->p1_disconnected = (r->p2 != NULL);
         r->p1_disconnected_at = now;
+        r->p1_pending_win = 0;
     } else if (r->p2 == c) {
         snprintf(r->p2_name, sizeof(r->p2_name), "%s", c->name);
         snprintf(r->p2_session, sizeof(r->p2_session), "%s", c->session_id);
         r->p2 = NULL;
         r->p2_disconnected = (r->p1 != NULL);
         r->p2_disconnected_at = now;
+        r->p2_pending_win = 0;
     }
 
     // Reset current turn if he was on move
@@ -296,8 +298,7 @@ void handle_disconnect(struct Client* c) {
     struct Client* other = (r->p1) ? r->p1 : r->p2;
     if (other) {
         pthread_mutex_unlock(&g_rooms_mtx);
-        sendp(other->fd, "INFO|Opponent disconnected");
-        sendp(other->fd, "WIN|You");
+        sendp(other->fd, "INFO|Opponent disconnected, waiting %d s to reconnect", g_config.disconnect_grace);
         pthread_mutex_lock(&g_rooms_mtx);
         other->state = CLIENT_STATE_WAITING;
         other->current_room = r;
@@ -400,8 +401,8 @@ void rooms_prune_disconnected(int grace_seconds) {
             struct Client* other = r->p2;
             prune_slot(r, &r->p1, &r->p1_disconnected, &r->p1_disconnected_at);
             if (other) {
-                sendp(other->fd, "INFO|Opponent removed after timeout");
-                sendp(other->fd, "EXITED|");
+                sendp(other->fd, "INFO|Opponent did not return in time");
+                sendp(other->fd, "WIN|You");
                 other->current_room = NULL;
                 other->state = CLIENT_STATE_LOBBY;
                 r->p2 = NULL;
@@ -417,8 +418,8 @@ void rooms_prune_disconnected(int grace_seconds) {
             struct Client* other = r->p1;
             prune_slot(r, &r->p2, &r->p2_disconnected, &r->p2_disconnected_at);
             if (other) {
-                sendp(other->fd, "INFO|Opponent removed after timeout");
-                sendp(other->fd, "EXITED|");
+                sendp(other->fd, "INFO|Opponent did not return in time");
+                sendp(other->fd, "WIN|You");
                 other->current_room = NULL;
                 other->state = CLIENT_STATE_LOBBY;
                 r->p1 = NULL;

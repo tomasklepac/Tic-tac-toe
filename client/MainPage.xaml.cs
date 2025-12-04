@@ -347,7 +347,7 @@ public partial class MainPage : ContentPage
 
     /// <summary>
     /// Attempts automatic reconnect using stored session (short outages).
-    /// Retries with exponential backoff up to 5 attempts.
+    /// Retries with exponential backoff up to 10 attempts and updates UI status.
     /// </summary>
     private async Task<bool> AttemptReconnectLoopAsync()
     {
@@ -356,8 +356,16 @@ public partial class MainPage : ContentPage
         if (string.IsNullOrEmpty(_serverIp) || _serverPort == 0 || string.IsNullOrEmpty(_playerName) || string.IsNullOrEmpty(_sessionId))
             return false;
 
+        Dispatcher.Dispatch(() =>
+        {
+            LabelStatus.Text = "Reconnecting...";
+            LabelLobbyStatus.Text = "Reconnecting...";
+            LabelLobbyStatus.IsVisible = true;
+        });
+
         int delayMs = 1000;
-        for (int attempt = 1; attempt <= 5; attempt++)
+        const int maxAttempts = 10;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
             {
@@ -389,6 +397,12 @@ public partial class MainPage : ContentPage
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Reconnect attempt {Attempt} failed", attempt);
+                Dispatcher.Dispatch(() =>
+                {
+                    LabelStatus.Text = $"Reconnecting... (attempt {attempt}/{maxAttempts})";
+                    LabelLobbyStatus.Text = LabelStatus.Text;
+                    LabelLobbyStatus.IsVisible = true;
+                });
                 await Task.Delay(delayMs);
                 delayMs = Math.Min(delayMs * 2, 8000);
             }
@@ -663,62 +677,32 @@ public partial class MainPage : ContentPage
 
                 _isMyTurn = false;
                 SetButtonsEnabled(false);
-                return;
-            }
+            return;
+        }
 
-            if (line.StartsWith("##WIN|You", StringComparison.Ordinal))
-            {
-                _isMyTurn = false;
-                SetButtonsEnabled(false);
-                LabelStatus.Text = "You win!";
+        if (line.StartsWith("##WIN|You", StringComparison.Ordinal))
+        {
+            _isMyTurn = false;
+            SetButtonsEnabled(false);
+            _ = ShowResultThenReplayAsync("You win!");
+            return;
+        }
 
-                if (!_opponentLeft)
-                {
-                    _ = AskReplayAsync();
-                }
-                else
-                {
-                    _opponentLeft = false; // Reset local flag when opponent already left
-                }
+        if (line.StartsWith("##LOSE|", StringComparison.Ordinal))
+        {
+            _isMyTurn = false;
+            SetButtonsEnabled(false);
+            _ = ShowResultThenReplayAsync("You lose.");
+            return;
+        }
 
-                return;
-            }
-
-            if (line.StartsWith("##LOSE|", StringComparison.Ordinal))
-            {
-                _isMyTurn = false;
-                SetButtonsEnabled(false);
-                LabelStatus.Text = "You lose.";
-
-                if (!_opponentLeft)
-                {
-                    _ = AskReplayAsync();
-                }
-                else
-                {
-                    _opponentLeft = false; // Reset flag
-                }
-
-                return;
-            }
-
-            if (line.StartsWith("##DRAW|", StringComparison.Ordinal))
-            {
-                _isMyTurn = false;
-                SetButtonsEnabled(false);
-                LabelStatus.Text = "Draw.";
-
-                if (!_opponentLeft)
-                {
-                    _ = AskReplayAsync();
-                }
-                else
-                {
-                    _opponentLeft = false; // Reset flag
-                }
-
-                return;
-            }
+        if (line.StartsWith("##DRAW|", StringComparison.Ordinal))
+        {
+            _isMyTurn = false;
+            SetButtonsEnabled(false);
+            _ = ShowResultThenReplayAsync("Draw.");
+            return;
+        }
         }
         catch (Exception ex)
         {
@@ -784,6 +768,24 @@ public partial class MainPage : ContentPage
     {
         string name = $"B{y}{x}"; // B[row][col]
         return this.FindByName<Button>(name);
+    }
+
+    /// <summary>
+    /// First show the game result, then optionally ask for replay.
+    /// Skips replay prompt if opponent already left/disconnected.
+    /// </summary>
+    private async Task ShowResultThenReplayAsync(string message)
+    {
+        LabelStatus.Text = message;
+        await DisplayAlert("Game Over", message, "OK");
+
+        if (_opponentLeft)
+        {
+            _opponentLeft = false;
+            return;
+        }
+
+        await AskReplayAsync();
     }
 
     /// <summary>

@@ -64,6 +64,8 @@ typedef struct Room {
     bool p2_disconnected;
     time_t p1_disconnected_at;
     time_t p2_disconnected_at;
+    int   p1_pending_win; // 1 if win was awarded to opponent due to timeout
+    int   p2_pending_win;
 
     // Identification for reconnect
     char p1_name[32];
