@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "game.h"
 #include "config.h"
+#include "log.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -184,17 +185,24 @@ static void dispatch_line(struct Client* c, const char* line) {
 
         Room* r = c->current_room;
         int yes = (strcasecmp(line + 9, "YES") == 0);
+        logf("Replay vote from %s: %s (room %s)", c->name, yes ? "YES" : "NO", r->name);
 
         // Player declined replay (voluntary exit - no reconnect allowed)
         if (!yes) {
-            sendp(c->fd, "INFO|You declined replay");
+        sendp(c->fd, "INFO|You declined replay");
 
-            struct Client* other = (r->p1 == c) ? r->p2 : r->p1;
-            if (other) {
-                sendp(other->fd, "INFO|Opponent declined replay");
-                other->state = CLIENT_STATE_WAITING;
-                other->current_room = r;
-            }
+        // Reset any pending replay flags; a decline cancels the restart cycle
+        r->replay_p1 = 0;
+        r->replay_p2 = 0;
+
+        struct Client* other = (r->p1 == c) ? r->p2 : r->p1;
+        if (other) {
+            sendp(other->fd, "INFO|Opponent declined replay");
+            sendp(other->fd, "CLEAR|");
+            game_reset(&r->game, other);
+            other->state = CLIENT_STATE_WAITING;
+            other->current_room = r;
+        }
 
             // Clear slot and DO NOT preserve reconnect info (voluntary exit)
             if (r->p1 == c) {
@@ -231,6 +239,7 @@ static void dispatch_line(struct Client* c, const char* line) {
 
     } else {
         sendp(c->fd, "ERROR|UNKNOWN_CMD");
+        logf("Unknown command from %s: %s", c->name[0] ? c->name : "(unknown)", line);
         bump_invalid(c, "unknown command");
     }
 }

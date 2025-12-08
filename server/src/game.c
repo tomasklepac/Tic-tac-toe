@@ -9,6 +9,7 @@
 #include "game.h"
 #include "room.h"
 #include "utils.h"
+#include "log.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -60,6 +61,7 @@ int game_move(struct Room* r, struct Client* who, int x, int y) {
     // --- place symbol ---
     char sym = (who == r->p1) ? 'X' : 'O';
     g->board[y][x] = sym;
+    logf("Move: room %s %s (%c) -> %d,%d", r->name, who->name, sym, x, y);
 
     // Broadcast move to both players
     if (r->p1) sendp(r->p1->fd, "MOVE|%s|%d|%d", who->name, x, y);
@@ -74,9 +76,11 @@ int game_move(struct Room* r, struct Client* who, int x, int y) {
         if (who == r->p1) {
             if (r->p1) sendp(r->p1->fd, "WIN|You");
             if (r->p2) sendp(r->p2->fd, "LOSE|%s", r->p1->name);
+            logf("Game result room %s: %s wins vs %s", r->name, r->p1_name, r->p2_name);
         } else {
             if (r->p2) sendp(r->p2->fd, "WIN|You");
             if (r->p1) sendp(r->p1->fd, "LOSE|%s", r->p2->name);
+            logf("Game result room %s: %s wins vs %s", r->name, r->p2_name, r->p1_name);
         }
         
         /* If opponent is missing, end game without replay option */
@@ -92,6 +96,7 @@ int game_move(struct Room* r, struct Client* who, int x, int y) {
         r->replay_p1 = r->replay_p2 = 0;
         if (r->p1) sendp(r->p1->fd, "DRAW|");
         if (r->p2) sendp(r->p2->fd, "DRAW|");
+        logf("Game result room %s: draw", r->name);
         return 1;
     }
 

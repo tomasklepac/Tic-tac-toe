@@ -1,0 +1,5 @@
+C:\Users\tomas\school\UPS\Tic-tac-toe\client-avalonia\bin\Release\net8.0\win-x64\publish\PiskvorkyClientAvalonia.pdb
+C:\Users\tomas\school\UPS\Tic-tac-toe\client-avalonia\bin\Release\net8.0\win-x64\publish\av_libglesv2.dll
+C:\Users\tomas\school\UPS\Tic-tac-toe\client-avalonia\bin\Release\net8.0\win-x64\publish\libHarfBuzzSharp.dll
+C:\Users\tomas\school\UPS\Tic-tac-toe\client-avalonia\bin\Release\net8.0\win-x64\publish\libSkiaSharp.dll
+C:\Users\tomas\school\UPS\Tic-tac-toe\client-avalonia\bin\Release\net8.0\win-x64\publish\PiskvorkyClientAvalonia.exe

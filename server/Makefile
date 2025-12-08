@@ -2,7 +2,7 @@ CC      = gcc
 CFLAGS  = -Wall -Wextra -O2 -std=c17 -Iinclude
 LDFLAGS = -pthread
 
-SRC     = src/main.c src/client.c src/room.c src/utils.c src/game.c src/config.c
+SRC     = src/main.c src/client.c src/room.c src/utils.c src/game.c src/config.c src/log.c
 OBJ     = $(SRC:.c=.o)
 BIN     = build/server
 
