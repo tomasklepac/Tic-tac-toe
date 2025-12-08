@@ -397,14 +397,14 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
                     char ch = r->game.board[y][x];
                     if (ch == 'X' || ch == 'O') {
                         const char* mover = (ch == 'X') ? r->p1_name : r->p2_name;
-                        sendp(newcomer->fd, "##MOVE|%s|%d|%d", mover, x, y);
+                        sendp(newcomer->fd, "MOVE|%s|%d|%d", mover, x, y);
                     }
                 }
             }
 
             // === SEND CURRENT TURN ===
             if (r->game.current_turn == newcomer) {
-                sendp(newcomer->fd, "##TURN|");
+                sendp(newcomer->fd, "TURN|");
             }
 
             // Notify the other player
@@ -418,7 +418,7 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
         }
     }
 
-    sendp(newcomer->fd, "##ERROR|No reconnect slot");
+    sendp(newcomer->fd, "ERROR|No reconnect slot");
     pthread_mutex_unlock(&g_rooms_mtx);
     return NULL;
 }
