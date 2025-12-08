@@ -18,7 +18,7 @@ void log_close() {
     }
 }
 
-void logf(const char* fmt, ...) {
+void server_log(const char* fmt, ...) {
     if (!g_log) return;
     time_t now = time(NULL);
     struct tm* tm_info = localtime(&now);

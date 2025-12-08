@@ -119,7 +119,7 @@ void client_set_state(struct Client* c, ClientState st) {
 
 static void handle_join(struct Client* c, const char* payload);
 static void handle_quit(struct Client* c);
-static void bump_invalid(struct Client* c, const char* reason);
+static void bump_invalid(struct Client* c);
 
 static void dispatch_line(struct Client* c, const char* line) {
     if (strncmp(line, "##JOIN|", 7) == 0) {
@@ -131,7 +131,7 @@ static void dispatch_line(struct Client* c, const char* line) {
 
         if (!name || !session) {
             sendp(c->fd, "ERROR|Invalid reconnect format");
-            bump_invalid(c, "invalid reconnect");
+            bump_invalid(c);
             return;
         }
 
@@ -166,26 +166,26 @@ static void dispatch_line(struct Client* c, const char* line) {
         int x, y;
         if (!c->current_room) {
             sendp(c->fd, "ERROR|Not in game room");
-            bump_invalid(c, "move outside room");
+            bump_invalid(c);
             return;
         }
         if (parse_move(line, &x, &y))
             game_move(c->current_room, c, x, y);
         else {
             sendp(c->fd, "ERROR|Invalid MOVE format");
-            bump_invalid(c, "invalid move format");
+            bump_invalid(c);
         }
 
     } else if (strncmp(line, "##REPLAY|", 9) == 0) {
         if (!c->current_room) {
             sendp(c->fd, "ERROR|Not in room");
-            bump_invalid(c, "replay outside room");
+            bump_invalid(c);
             return;
         }
 
         Room* r = c->current_room;
         int yes = (strcasecmp(line + 9, "YES") == 0);
-        logf("Replay vote from %s: %s (room %s)", c->name, yes ? "YES" : "NO", r->name);
+        server_log("Replay vote from %s: %s (room %s)", c->name, yes ? "YES" : "NO", r->name);
 
         // Player declined replay (voluntary exit - no reconnect allowed)
         if (!yes) {
@@ -239,8 +239,8 @@ static void dispatch_line(struct Client* c, const char* line) {
 
     } else {
         sendp(c->fd, "ERROR|UNKNOWN_CMD");
-        logf("Unknown command from %s: %s", c->name[0] ? c->name : "(unknown)", line);
-        bump_invalid(c, "unknown command");
+        server_log("Unknown command from %s: %s", c->name[0] ? c->name : "(unknown)", line);
+        bump_invalid(c);
     }
 }
 
@@ -302,7 +302,7 @@ static void handle_quit(struct Client* c) {
 //  Invalid message tracking
 // ============================================================
 
-static void bump_invalid(struct Client* c, const char* reason) {
+static void bump_invalid(struct Client* c) {
     if (!c) return;
     c->invalid_count++;
     if (c->invalid_count >= MAX_INVALID_MSG) {

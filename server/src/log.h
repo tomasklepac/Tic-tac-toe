@@ -4,5 +4,5 @@
 
 void log_init(const char* path);
 void log_close();
-void logf(const char* fmt, ...);
+void server_log(const char* fmt, ...);
 

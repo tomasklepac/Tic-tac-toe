@@ -67,7 +67,7 @@ Room* room_create(const char* name, struct Client* creator) {
     r->replay_p2 = 0;
 
     sendp(creator->fd, "CREATED|%d|%s", r->id, r->name);
-    logf("Room created: id=%d name=%s by %s", r->id, r->name, creator->name);
+    server_log("Room created: id=%d name=%s by %s", r->id, r->name, creator->name);
     pthread_mutex_unlock(&g_rooms_mtx);
     return r;
 }
@@ -147,7 +147,7 @@ Room* room_join(int room_id, struct Client* joiner) {
 
     r->replay_p1 = r->replay_p2 = 0;
     game_start(r);
-    logf("Room %s started game: %s (X) vs %s (O)", r->name, first->name, second->name);
+    server_log("Room %s started game: %s (X) vs %s (O)", r->name, first->name, second->name);
     pthread_mutex_unlock(&g_rooms_mtx);
     return r;
 }
@@ -188,13 +188,13 @@ void room_leave(struct Client* c) {
     c->current_room = NULL;
     c->state = CLIENT_STATE_LOBBY;
     sendp(c->fd, "EXITED|");
-    logf("Player %s left room %s", c->name, r->name);
+    server_log("Player %s left room %s", c->name, r->name);
 
     struct Client* other = (r->p1) ? r->p1 : r->p2;
     if (other && was_playing) {
         sendp(other->fd, "INFO|Opponent left");
         sendp(other->fd, "WIN|You");
-        logf("Room %s: opponent left, awarding win to %s", r->name, other->name);
+        server_log("Room %s: opponent left, awarding win to %s", r->name, other->name);
     }
 
     r->replay_p1 = r->replay_p2 = 0;
@@ -202,10 +202,10 @@ void room_leave(struct Client* c) {
     if (!r->p1 && !r->p2) {
         r->state = ROOM_EMPTY;
         room_remove_if_empty_locked(r);
-        logf("Room %s removed (empty)", r->name);
+        server_log("Room %s removed (empty)", r->name);
     } else if (!r->p1 || !r->p2) {
         r->state = ROOM_WAITING;
-        logf("Room %s set to WAITING (one player remaining)", r->name);
+        server_log("Room %s set to WAITING (one player remaining)", r->name);
     }
     pthread_mutex_unlock(&g_rooms_mtx);
 }
@@ -275,7 +275,7 @@ void room_try_restart(Room* r) {
 
         sendp(r->p1->fd, "RESTART|");
         sendp(r->p2->fd, "RESTART|");
-        logf("Room %s replay agreed, starting player: %s", r->name,
+        server_log("Room %s replay agreed, starting player: %s", r->name,
              r->starting_player == 0 ? r->p1->name : r->p2->name);
 
         if (r->starting_player == 0) {
@@ -304,7 +304,7 @@ void handle_disconnect(struct Client* c) {
     time_t now = time(NULL);
 
     printf("Client %s disconnected\n", c->name);
-    logf("Client %s disconnected from room %s", c->name, r->name);
+    server_log("Client %s disconnected from room %s", c->name, r->name);
     pthread_mutex_lock(&g_rooms_mtx);
 
     // Preserve identity for reconnect
@@ -341,11 +341,11 @@ void handle_disconnect(struct Client* c) {
         other->state = CLIENT_STATE_WAITING;
         other->current_room = r;
         r->state = ROOM_WAITING;
-        logf("Room %s waiting for reconnect of %s", r->name, c->name);
+        server_log("Room %s waiting for reconnect of %s", r->name, c->name);
     } else {
         r->state = ROOM_EMPTY;
         room_remove_if_empty_locked(r);
-        logf("Room %s empty after disconnect", r->name);
+        server_log("Room %s empty after disconnect", r->name);
     }
     pthread_mutex_unlock(&g_rooms_mtx);
 }
@@ -412,7 +412,7 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
                 sendp(opponent->fd, "INFO|Opponent reconnected");
             }
 
-            logf("Client %s reconnected to room %s as %c", newcomer->name, r->name, symbol);
+            server_log("Client %s reconnected to room %s as %c", newcomer->name, r->name, symbol);
             pthread_mutex_unlock(&g_rooms_mtx);
             return r;
         }
@@ -444,7 +444,7 @@ void rooms_prune_disconnected(int grace_seconds) {
             if (other) {
                 sendp(other->fd, "INFO|Opponent did not return in time");
                 sendp(other->fd, "WIN|You");
-                logf("Room %s: %s timed out, win to %s", r->name, r->p1_name, other->name);
+                server_log("Room %s: %s timed out, win to %s", r->name, r->p1_name, other->name);
                 other->current_room = NULL;
                 other->state = CLIENT_STATE_LOBBY;
                 r->p2 = NULL;
@@ -462,7 +462,7 @@ void rooms_prune_disconnected(int grace_seconds) {
             if (other) {
                 sendp(other->fd, "INFO|Opponent did not return in time");
                 sendp(other->fd, "WIN|You");
-                logf("Room %s: %s timed out, win to %s", r->name, r->p2_name, other->name);
+                server_log("Room %s: %s timed out, win to %s", r->name, r->p2_name, other->name);
                 other->current_room = NULL;
                 other->state = CLIENT_STATE_LOBBY;
                 r->p1 = NULL;

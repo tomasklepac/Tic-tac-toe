@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
 
     // Initialize file logging (truncate on start)
     log_init("server.log");
-    logf("Server start, bind=%s port=%d, max_rooms=%d max_clients=%d grace=%ds",
+    server_log("Server start, bind=%s port=%d, max_rooms=%d max_clients=%d grace=%ds",
          g_config.bind_address, port, g_config.max_rooms, g_config.max_clients, g_config.disconnect_grace);
 
     // CLI argument overrides config file port
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
     printf("  Tic-Tac-Toe Server is running\n");
     printf("  Listening on %s:%d\n", g_config.bind_address, port);
     printf("=====================================\n\n");
-    logf("Listening on %s:%d", g_config.bind_address, port);
+    server_log("Listening on %s:%d", g_config.bind_address, port);
 
     // --------------------------------------------------------
     //  Launch heartbeat thread
@@ -177,14 +177,14 @@ int main(int argc, char** argv) {
 
         pthread_detach(th);
         printf("[+] New client connected (fd=%d)\n", cfd);
-        logf("Client connected fd=%d", cfd);
+        server_log("Client connected fd=%d", cfd);
     }
 
     // --------------------------------------------------------
     //  Cleanup (unreachable in normal operation)
     // --------------------------------------------------------
     close(server_fd);
-    logf("Server shutting down");
+    server_log("Server shutting down");
     log_close();
     return 0;
 }
