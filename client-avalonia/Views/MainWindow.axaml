@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1024" d:DesignHeight="720"
+        x:Class="PiskvorkyClientAvalonia.Views.MainWindow"
+        Title="Piskvorky Client"
+        Icon="/Assets/avalonia-logo.ico">
+
+    <Grid>
+        <!-- Lobby -->
+        <StackPanel x:Name="LobbyView" Margin="20" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Text="Lobby" FontSize="28" HorizontalAlignment="Center"/>
+            <TextBox x:Name="EntryIP" Watermark="IP address" Width="280"/>
+            <TextBox x:Name="EntryPort" Watermark="Port" Width="280"/>
+            <TextBox x:Name="EntryName" Watermark="Username" Width="280"/>
+            <Button x:Name="ConnectButton" Content="Connect" Width="200" Click="OnConnectClicked"/>
+            <TextBlock x:Name="LabelLobbyStatus" Foreground="Gray" TextAlignment="Center"/>
+        </StackPanel>
+
+        <!-- Rooms -->
+        <Grid x:Name="RoomsView" IsVisible="False" Margin="16" RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="*">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="Back to Lobby" Click="OnBackToLobbyClicked"/>
+                <Button Content="Refresh" Click="OnRefreshRoomsClicked"/>
+                <TextBox x:Name="EntryRoomName" Width="200" Watermark="New room name"/>
+                <Button Content="Create" Click="OnCreateRoomClicked"/>
+            </StackPanel>
+
+            <TextBlock Grid.Row="1" Text="Available Rooms" FontSize="22" Margin="0,10,0,10"/>
+
+            <ListBox Grid.Row="2" x:Name="RoomsList" ItemsSource="{Binding Rooms}" SelectionChanged="OnRoomSelected"
+                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" Margin="0,10,0,0">
+                <Button Content="Join Selected" Width="150" Click="OnJoinRoomClicked"/>
+                <Button Content="Back to Rooms" Width="150" Click="OnBackToLobbyClicked"/>
+            </StackPanel>
+
+            <TextBlock Grid.Row="3" x:Name="LabelRoomsStatus" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="Gray"/>
+        </Grid>
+
+        <!-- Game -->
+        <Grid x:Name="GameRoomView" IsVisible="False" Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="Back to Rooms" Click="OnBackToRoomsClicked"/>
+                <TextBlock x:Name="LabelPlayers" FontSize="18" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <TextBlock Grid.Row="1" x:Name="LabelStatus" Foreground="Gray" Margin="0,8,0,8"/>
+
+            <UniformGrid Grid.Row="2" Rows="3" Columns="3" x:Name="GameGrid" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,10,0,10">
+                <Button x:Name="B00" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B01" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B02" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B10" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B11" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B12" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B20" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B21" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+                <Button x:Name="B22" Content="" Width="120" Height="120" FontSize="36" Click="OnCellClicked"/>
+            </UniformGrid>
+        </Grid>
+    </Grid>
+</Window>
