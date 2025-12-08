@@ -1,0 +1,4 @@
+C:\Users\tomas\school\UPS\Tic-tac-toe\client\publish-linux\PiskvorkyClientAvalonia.pdb
+C:\Users\tomas\school\UPS\Tic-tac-toe\client\publish-linux\libHarfBuzzSharp.so
+C:\Users\tomas\school\UPS\Tic-tac-toe\client\publish-linux\libSkiaSharp.so
+C:\Users\tomas\school\UPS\Tic-tac-toe\client\publish-linux\PiskvorkyClientAvalonia

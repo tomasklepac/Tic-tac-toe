@@ -264,6 +264,7 @@ void* client_thread(void* arg) {
         }
 
         trim_newline(buf);
+        if (strlen(buf) == 0) continue; // Ignore empty lines (keepalives/frag)
         dispatch_line(c, buf);
         if (!c->alive) break;
     }

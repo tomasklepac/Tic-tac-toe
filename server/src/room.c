@@ -362,15 +362,30 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
     for (int i = 0; i < g_room_count; ++i) {
         Room* r = &g_rooms[i];
 
-        bool match_p1 = (!r->p1 && r->p1_disconnected &&
+        // Check P1: matches if slot is empty (disconnected) OR if slot is occupied but credentials match (session stealing)
+        bool match_p1 = ( (!r->p1 && r->p1_disconnected) || (r->p1 && !r->p1_disconnected) ) &&
                          strncmp(r->p1_name, nick, sizeof(r->p1_name)) == 0 &&
-                         strncmp(r->p1_session, session, sizeof(r->p1_session)) == 0);
+                         strncmp(r->p1_session, session, sizeof(r->p1_session)) == 0;
 
-        bool match_p2 = (!r->p2 && r->p2_disconnected &&
+        // Check P2: similar logic
+        bool match_p2 = ( (!r->p2 && r->p2_disconnected) || (r->p2 && !r->p2_disconnected) ) &&
                          strncmp(r->p2_name, nick, sizeof(r->p2_name)) == 0 &&
-                         strncmp(r->p2_session, session, sizeof(r->p2_session)) == 0);
+                         strncmp(r->p2_session, session, sizeof(r->p2_session)) == 0;
 
         if (match_p1 || match_p2) {
+            // Found a match (either disconnected OR zombie active session)
+            
+            // Steal session logic: detach old client if it looks active
+            struct Client* old_owner = match_p1 ? r->p1 : r->p2;
+            if (old_owner) {
+                 server_log("Stealing session from zombie client %s (fd=%d)", old_owner->name, old_owner->fd);
+                 // Detach old owner smoothly
+                 old_owner->current_room = NULL;
+                 old_owner->state = CLIENT_STATE_LOBBY;
+                 sendp(old_owner->fd, "INFO|You have been disconnected (session stolen)");
+                 // Note: we don't close socket, just kick from room
+            }
+
             if (match_p1) {
                 r->p1 = newcomer;
                 r->p1_disconnected = false;
@@ -410,6 +425,22 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
             // Notify the other player
             if (opponent) {
                 sendp(opponent->fd, "INFO|Opponent reconnected");
+                
+                // Resend moves to opponent because their client likely cleared the board
+                for (int y = 0; y < SIZE; ++y) {
+                    for (int x = 0; x < SIZE; ++x) {
+                        char ch = r->game.board[y][x];
+                        if (ch == 'X' || ch == 'O') {
+                            const char* mover = (ch == 'X') ? r->p1_name : r->p2_name;
+                            sendp(opponent->fd, "MOVE|%s|%d|%d", mover, x, y);
+                        }
+                    }
+                }
+
+                // Resend TURN to opponent if it is their turn (UI might be locked)
+                if (r->game.current_turn == opponent) {
+                    sendp(opponent->fd, "TURN|Your move");
+                }
             }
 
             server_log("Client %s reconnected to room %s as %c", newcomer->name, r->name, symbol);
