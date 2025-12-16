@@ -110,12 +110,33 @@ public partial class MainWindow : Window
     {
         try
         {
+            // Watchdog timeout - slightly more than 2x PING interval (5s)
+            // If server works, we get PING every 5s. If silence > 12s, assume dead.
+            TimeSpan receiveTimeout = TimeSpan.FromMilliseconds(12000);
+
             while (!token.IsCancellationRequested)
             {
                 string? line;
                 try
                 {
-                    line = await _reader!.ReadLineAsync();
+                    var readTask = _reader!.ReadLineAsync();
+                    
+                    // Wait for read OR timeout OR cancellation
+                    // Note: Task.WaitAsync is .NET 6+, fallback for compat if needed, 
+                    // but Avalonia implies modern .NET. simpler approach using WhenAny for robustness:
+                    var completed = await Task.WhenAny(readTask, Task.Delay(receiveTimeout, token));
+
+                    if (completed != readTask)
+                    {
+                        // Timeout happened (or token cancelled Task.Delay)
+                        if (token.IsCancellationRequested) break;
+                        
+                        Log("Watchdog timeout: Server silent for > 12s. Assuming disconnect.");
+                        break; // Trigger finally -> SafeDisconnect
+                    }
+
+                    // Read completed
+                    line = await readTask;
                 }
                 catch
                 {
@@ -127,6 +148,10 @@ public partial class MainWindow : Window
                 var captured = line;
                 await Dispatcher.UIThread.InvokeAsync(() => HandleServerMessage(captured));
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal cancellation
         }
         finally
         {

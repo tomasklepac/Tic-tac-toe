@@ -14,7 +14,7 @@ void config_load(const char* filename, ServerConfig* cfg)
     cfg->max_rooms = 16;
     cfg->max_clients = 128;
     strcpy(cfg->bind_address, "0.0.0.0");
-    cfg->disconnect_grace = 15;
+    cfg->disconnect_grace = 60;
 
     FILE* f = fopen(filename, "r");
     if (!f) return; // fallback to defaults
