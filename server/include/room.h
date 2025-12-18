@@ -67,6 +67,9 @@ typedef struct Room {
     int   p1_pending_win; // 1 if win was awarded to opponent due to timeout
     int   p2_pending_win;
 
+    // Persist who was on turn if game is paused due to disconnect (0=none, 1=p1, 2=p2)
+    int   turn_owner_disconnected;
+
     // Identification for reconnect
     char p1_name[32];
     char p2_name[32];

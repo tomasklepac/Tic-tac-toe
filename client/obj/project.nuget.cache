@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "ZA5yRhq7aMM=",
+  "dgSpecHash": "oYRLZuHb2fw=",
   "success": true,
   "projectFilePath": "C:\\Users\\tomas\\school\\UPS\\Tic-tac-toe\\client\\PiskvorkyClientAvalonia.csproj",
   "expectedPackageFiles": [
@@ -33,9 +33,9 @@
     "C:\\Users\\tomas\\.nuget\\packages\\skiasharp.nativeassets.win32\\2.88.9\\skiasharp.nativeassets.win32.2.88.9.nupkg.sha512",
     "C:\\Users\\tomas\\.nuget\\packages\\system.io.pipelines\\8.0.0\\system.io.pipelines.8.0.0.nupkg.sha512",
     "C:\\Users\\tomas\\.nuget\\packages\\tmds.dbus.protocol\\0.21.2\\tmds.dbus.protocol.0.21.2.nupkg.sha512",
-    "C:\\Users\\tomas\\.nuget\\packages\\microsoft.netcore.app.runtime.linux-x64\\8.0.22\\microsoft.netcore.app.runtime.linux-x64.8.0.22.nupkg.sha512",
-    "C:\\Users\\tomas\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.linux-x64\\8.0.22\\microsoft.aspnetcore.app.runtime.linux-x64.8.0.22.nupkg.sha512",
-    "C:\\Users\\tomas\\.nuget\\packages\\microsoft.netcore.app.host.linux-x64\\8.0.22\\microsoft.netcore.app.host.linux-x64.8.0.22.nupkg.sha512"
+    "C:\\Users\\tomas\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.22\\microsoft.netcore.app.runtime.win-x64.8.0.22.nupkg.sha512",
+    "C:\\Users\\tomas\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.22\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.22.nupkg.sha512",
+    "C:\\Users\\tomas\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.22\\microsoft.aspnetcore.app.runtime.win-x64.8.0.22.nupkg.sha512"
   ],
   "logs": []
 }

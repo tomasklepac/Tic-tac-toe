@@ -600,7 +600,7 @@
         }
       }
     },
-    "net8.0/linux-x64": {
+    "net8.0/win-x64": {
       "Avalonia/11.3.9": {
         "type": "package",
         "dependencies": {
@@ -684,7 +684,10 @@
         }
       },
       "Avalonia.Angle.Windows.Natives/2.1.25547.20250602": {
-        "type": "package"
+        "type": "package",
+        "native": {
+          "runtimes/win-x64/native/av_libglesv2.dll": {}
+        }
       },
       "Avalonia.BuildServices/11.3.2": {
         "type": "package",
@@ -944,9 +947,6 @@
         },
         "runtime": {
           "lib/net8.0/_._": {}
-        },
-        "native": {
-          "runtimes/linux-x64/native/libHarfBuzzSharp.so": {}
         }
       },
       "HarfBuzzSharp.NativeAssets.macOS/8.3.1.1": {
@@ -978,6 +978,9 @@
         },
         "runtime": {
           "lib/net8.0/_._": {}
+        },
+        "native": {
+          "runtimes/win-x64/native/libHarfBuzzSharp.dll": {}
         }
       },
       "MicroCom.Runtime/0.11.0": {
@@ -1016,9 +1019,6 @@
         },
         "runtime": {
           "lib/net6.0/_._": {}
-        },
-        "native": {
-          "runtimes/linux-x64/native/libSkiaSharp.so": {}
         }
       },
       "SkiaSharp.NativeAssets.macOS/2.88.9": {
@@ -1050,6 +1050,9 @@
         },
         "runtime": {
           "lib/net6.0/_._": {}
+        },
+        "native": {
+          "runtimes/win-x64/native/libSkiaSharp.dll": {}
         }
       },
       "System.IO.Pipelines/8.0.0": {
@@ -2036,15 +2039,15 @@
         "warn": true,
         "downloadDependencies": [
           {
-            "name": "Microsoft.AspNetCore.App.Runtime.linux-x64",
+            "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
             "version": "[8.0.22, 8.0.22]"
           },
           {
-            "name": "Microsoft.NETCore.App.Host.linux-x64",
+            "name": "Microsoft.NETCore.App.Runtime.win-x64",
             "version": "[8.0.22, 8.0.22]"
           },
           {
-            "name": "Microsoft.NETCore.App.Runtime.linux-x64",
+            "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
             "version": "[8.0.22, 8.0.22]"
           }
         ],
@@ -2057,7 +2060,7 @@
       }
     },
     "runtimes": {
-      "linux-x64": {
+      "win-x64": {
         "#import": []
       }
     }

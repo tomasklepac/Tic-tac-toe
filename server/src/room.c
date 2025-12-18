@@ -63,6 +63,7 @@ Room* room_create(const char* name, struct Client* creator) {
     creator->current_room = r;
     creator->state = CLIENT_STATE_WAITING;
 
+    r->turn_owner_disconnected = 0;
     r->replay_p1 = 0;
     r->replay_p2 = 0;
 
@@ -326,6 +327,8 @@ void handle_disconnect(struct Client* c) {
 
     // Reset current turn if he was on move
     if (r->game.current_turn == c) {
+        if (r->p1 == NULL) r->turn_owner_disconnected = 1; // p1 left
+        else if (r->p2 == NULL) r->turn_owner_disconnected = 2; // p2 left
         r->game.current_turn = NULL;
     }
 
@@ -399,6 +402,16 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
             newcomer->current_room = r;
             newcomer->state = (r->p1 && r->p2) ? CLIENT_STATE_PLAYING : CLIENT_STATE_WAITING;
 
+            // Restore turn if applicable
+            if (newcomer == r->p1 && r->turn_owner_disconnected == 1) {
+                r->game.current_turn = newcomer;
+                r->turn_owner_disconnected = 0;
+            }
+            if (newcomer == r->p2 && r->turn_owner_disconnected == 2) {
+                r->game.current_turn = newcomer;
+                r->turn_owner_disconnected = 0;
+            }
+
             // === SEND RECONNECT HANDSHAKE ===
             sendp(newcomer->fd, "RECONNECTED|");
             Client* opponent = match_p1 ? r->p2 : r->p1;
@@ -437,7 +450,10 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
                     }
                 }
 
-                // Resend TURN to opponent if it is their turn (UI might be locked)
+                // If turn was just restored to the reconnecting player (me),
+                // the opponent must be informed that it is NOT their turn (wait).
+                // But generally, clients just listen to TURN|.
+                // If turn was returned to opponent (because I wasn't on turn), send TURN to them.
                 if (r->game.current_turn == opponent) {
                     sendp(opponent->fd, "TURN|Your move");
                 }
