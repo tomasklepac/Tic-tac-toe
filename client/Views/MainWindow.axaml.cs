@@ -156,6 +156,21 @@ public partial class MainWindow : Window
         finally
         {
             await SafeDisconnectAsync();
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                // Immediate feedback: switch to Lobby (Login screen)
+                GameRoomView.IsVisible = false;
+                RoomsView.IsVisible = false;
+                LobbyView.IsVisible = true;
+                
+                LabelLobbyStatus.Text = "Connection lost. Reconnecting...";
+                LabelLobbyStatus.IsVisible = true;
+                
+                // Clear in-game status just in case
+                LabelStatus.Text = "Reconnecting..."; 
+            });
+
             bool reconnected = await AttemptReconnectLoopAsync();
             if (!reconnected)
             {
@@ -164,7 +179,8 @@ public partial class MainWindow : Window
                     LabelStatus.Text = "Connection lost.";
                     LabelLobbyStatus.Text = "Connection lost.";
                     LabelLobbyStatus.IsVisible = true;
-
+                    
+                    // Views are already switched above, but ensure:
                     GameRoomView.IsVisible = false;
                     RoomsView.IsVisible = false;
                     LobbyView.IsVisible = true;
@@ -261,7 +277,7 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private async void HandleServerMessage(string line)
+    private async Task HandleServerMessage(string line)
     {
         try
         {
@@ -476,8 +492,20 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // ignore malformed lines
+            // ignore parsing errors
         }
+
+        // Protocol violation
+        Log($"Protocol violation: Unknown or unhandled message: {line}");
+        
+        // Disable auto-reconnect to prevent loop
+        _allowAutoReconnect = false;
+
+        // Disconnect IMMEDIATELY
+        await SafeDisconnectAsync();
+
+        // Notify user
+        await ShowMessage("Protocol Error", $"Received invalid message from server:\n{line}\n\nDisconnected.");
     }
 
     private void SwitchToGameRoom()

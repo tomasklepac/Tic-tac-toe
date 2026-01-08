@@ -95,6 +95,14 @@ Room* room_join(int room_id, struct Client* joiner) {
     pthread_mutex_lock(&g_rooms_mtx);
     Room* r = room_find_by_id(room_id);
     if (!r) { pthread_mutex_unlock(&g_rooms_mtx); sendp(joiner->fd, "ERROR|No such room"); return NULL; }
+    
+    // Check if player is already in a room (any room)
+    if (joiner->current_room != NULL) {
+        pthread_mutex_unlock(&g_rooms_mtx);
+        sendp(joiner->fd, "ERROR|Already in a room. Leave first.");
+        return NULL;
+    }
+
     if (r->p1 == joiner) { pthread_mutex_unlock(&g_rooms_mtx); sendp(joiner->fd, "ERROR|Cannot join your own room"); return NULL; }
 
     // Normalize room so that a lone player always occupies p1.
