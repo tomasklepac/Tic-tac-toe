@@ -446,6 +446,7 @@ public partial class MainWindow : Window
 
                 _isMyTurn = false;
                 SetButtonsEnabled(false);
+                LabelStatus.Text = "Waiting for opponent...";
                 return;
             }
 

@@ -279,6 +279,12 @@ void* client_thread(void* arg) {
 // ============================================================
 
 static void handle_join(struct Client* c, const char* payload) {
+    if (c->name[0] != '\0') {
+        sendp(c->fd, "ERROR|Already joined");
+        bump_invalid(c);
+        return;
+    }
+
     char tmp[64];
     strncpy(tmp, payload, sizeof(tmp) - 1);
     tmp[sizeof(tmp) - 1] = '\0';

@@ -382,6 +382,12 @@ Room* room_reconnect(const char* nick, const char* session, struct Client* newco
             struct Client* old_owner = match_p1 ? r->p1 : r->p2;
             if (old_owner) {
                  server_log("Stealing session from zombie client %s (fd=%d)", old_owner->name, old_owner->fd);
+
+                 // FIX: Transfer turn ownership if the zombie client was on move
+                 if (r->game.current_turn == old_owner) {
+                     r->game.current_turn = newcomer;
+                 }
+
                  // Detach old owner smoothly
                  old_owner->current_room = NULL;
                  old_owner->state = CLIENT_STATE_LOBBY;
