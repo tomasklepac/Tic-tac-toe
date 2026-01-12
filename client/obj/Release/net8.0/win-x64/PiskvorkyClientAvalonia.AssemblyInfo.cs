@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PiskvorkyClientAvalonia")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5a3884018cb42e37b363b46963d76c27de054e43")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+95d3b89e05315714aec51b92d1412b428169ff71")]
 [assembly: System.Reflection.AssemblyProductAttribute("PiskvorkyClientAvalonia")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PiskvorkyClientAvalonia")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
